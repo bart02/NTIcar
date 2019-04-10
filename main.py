@@ -1,5 +1,17 @@
 import cv2 as cv
 import numpy as np
+from servo import *
+from func import *
+
+
+def constrain(val, minv, maxv):
+    return min(maxv, max(minv, val))
+
+KP = 0.35
+KI = 0.001
+KD = 0.05
+last = 0
+integral = 0
 
 # constants
 SIZE = (400, 300)
@@ -15,38 +27,44 @@ TRAP = np.float32([[0, 299],
                    [80, 200]])
 TRAPINT = np.array(TRAP, dtype=np.int32)
 
-# import img
-img = cv.imread('s.png')
-img = cv.resize(img, SIZE)
-gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
+cap = cv.VideoCapture(0)
 
-cv.imshow('gray', gray)
-
-binary = cv.inRange(gray, 200, 255)
-cv.imshow('bin', binary)
-
-# tr = binary.copy()
-# cv.polylines(tr, [TRAPINT], True, 255)
-# cv.imshow('trap', tr)
-
-M = cv.getPerspectiveTransform(TRAP, RECT)
-perspective = cv.warpPerspective(binary, M, SIZE, flags=cv.INTER_LINEAR)
-cv.imshow('perspective', perspective)
-
-hist = np.sum(perspective[perspective.shape[0]//2:, :], axis=0)
-mid = hist.shape[0]//2
-left = np.argmax(hist[:mid])
-right = np.argmax(hist[mid:]) + mid
-
-cv.line(perspective, (left, 0), (left, 300), 50, 2)
-cv.line(perspective, (right, 0), (right, 300), 50, 2)
-cv.line(perspective, ((left + right) // 2, 0), ((left + right) // 2, 300), 110, 3)
-
-cv.imshow('lines', perspective)
-print((left + right) // 2 - 200)
+pi, ESC, STEER = setup_gpio()
+control(pi, ESC, 1500, STEER, 90)
+time.sleep(1)
+timeout = 0
 
 while True:
-    if cv.waitKey(1) & 0xFF == ord('q'):
+    try:
+        ret, frame = cap.read()
+        img = cv.resize(frame, SIZE)
+        binary = binarize(img)
+
+        perspective = trans_perspective(binary, TRAP, RECT, SIZE)
+
+        if detect_stop(perspective):
+            control(pi, ESC, 1500, STEER, 90)
+            time.sleep(5)
+
+        left, right = find_left_right(perspective, 1)
+
+        err = 0 - ((left + right) // 2 - 200)
+        if abs(right - left) < 100:
+            err = last
+        print(err)
+        pid = KP * err + KD * (err - last) + KI * integral
+        last = err
+        integral += err
+        integral = constrain(integral, -10, 10)
+
+        control(pi, ESC, 1540, STEER, 90 + pid)
+        time.sleep(0.001)
+
+        # if cv.waitKey(1) & 0xFF == ord('q'):
+        #     break
+    except KeyboardInterrupt:
+        control(pi, ESC, 1500, STEER, 90)
         break
 
-cv.destroyAllWindows()
+# cv.destroyAllWindows()
+cap.release()
