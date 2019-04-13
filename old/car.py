@@ -23,7 +23,7 @@ TRAP = np.float32([[0, 299],
                    [70, 200]])
 TRAPINT = np.array(TRAP, dtype=np.int32)
 
-cap = cv.VideoCapture(0)
+cap = cv.VideoCapture(2)
 
 while True:
     try:

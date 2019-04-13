@@ -5,10 +5,10 @@ from servo import *
 
 def binarize(img, d=0):
     hls = cv.cvtColor(img, cv.COLOR_BGR2HLS)
-    binaryh = cv.inRange(hls, (0, 0, 60), (255, 255, 255))
+    binaryh = cv.inRange(hls, (0, 0, 50), (255, 255, 255))
 
     gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
-    binaryg = cv.inRange(gray, 200, 255)
+    binaryg = cv.inRange(gray, 220, 255)
 
     binary = cv.bitwise_and(binaryg, binaryh)
 
@@ -30,7 +30,7 @@ def trans_perspective(binary, trap, rect, size, d=0):
 timeout_detect_stop = 0
 def detect_stop(perspective):
     global timeout_detect_stop
-    if int(time.time()) > timeout_detect_stop + 10:
+    if int(time.time()) > timeout_detect_stop + 2:
         stoplin = 0
         for i in range(50):
             stoplin += int(np.sum(perspective[i, :], axis=0) // 255)
